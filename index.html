@@ -1036,7 +1036,7 @@ function calculatePlanetLongitude(dateObj, planetKey) {
       }
     }
 
-    // TAB 4 表示 (50年未来予測)
+  // TAB 4 表示 (50年未来予測) - 月単位の精度にパワーアップ！
     function calculate50YearsTimeline() {
       const currentYear = new Date().getFullYear();
       timeline_Events = [];
@@ -1046,26 +1046,45 @@ function calculatePlanetLongitude(dateObj, planetKey) {
 
       for (let y = 0; y < 50; y++) {
         const scanYear = currentYear + y;
-        const scanDate = new Date(`${scanYear}-06-15T12:00:00`);
 
-        outerPlanets.forEach(transPlanet => {
-          const transDeg = calculatePlanetLongitude(scanDate, transPlanet);
+        // 1年を2ヶ月おき（1月、3月、5月、7月、9月、11月）にスキャンして、何月頃に起こるかを調べる
+        for (let m = 0; m < 12; m += 2) {
+          const scanDate = new Date(Date.UTC(scanYear, m, 15, 12, 0, 0));
+          const scanMonth = m + 1; // 1〜12月
 
-          targetCompPlanets.forEach(compPlanet => {
-            const compDeg = composite_Data.planets[compPlanet].deg;
-            const res = checkAspect(transDeg, compDeg);
+          outerPlanets.forEach(transPlanet => {
+            const transDeg = calculatePlanetLongitude(scanDate, transPlanet);
 
-            if (res && (res.aspect.name.includes("合") || res.aspect.name.includes("180") || res.aspect.name.includes("120"))) {
-              timeline_Events.push({
-                year: scanYear,
-                transPlanet: transPlanet,
-                compPlanet: compPlanet,
-                aspect: res.aspect,
-                orb: res.orbError
-              });
-            }
+            targetCompPlanets.forEach(compPlanet => {
+              const compDeg = composite_Data.planets[compPlanet].deg;
+              const res = checkAspect(transDeg, compDeg);
+
+              if (res && (res.aspect.name.includes("合") || res.aspect.name.includes("180") || res.aspect.name.includes("120") || res.aspect.name.includes("90"))) {
+                // すでに同じ年・同じ天体ペアのイベントが登録されていなければ追加（重複防止＆よりタイトなオーブを優先）
+                const existingIndex = timeline_Events.findIndex(e => 
+                  e.year === scanYear && e.transPlanet === transPlanet && e.compPlanet === compPlanet && e.aspect.name === res.aspect.name
+                );
+
+                if (existingIndex === -1) {
+                  timeline_Events.push({
+                    year: scanYear,
+                    month: scanMonth,
+                    transPlanet: transPlanet,
+                    compPlanet: compPlanet,
+                    aspect: res.aspect,
+                    orb: res.orbError
+                  });
+                } else {
+                  // すでに有る場合は、よりオーブ（誤差）が小さいほうの月に更新
+                  if (res.orbError < timeline_Events[existingIndex].orb) {
+                    timeline_Events[existingIndex].month = scanMonth;
+                    timeline_Events[existingIndex].orb = res.orbError;
+                  }
+                }
+              }
+            });
           });
-        });
+        }
       }
 
       renderTimeline();
@@ -1074,6 +1093,7 @@ function calculatePlanetLongitude(dateObj, planetKey) {
     function renderTimeline() {
       const container = document.getElementById("timeline_container");
       const filter = document.getElementById("timeline_filter").value;
+      if (!container) return;
       container.innerHTML = "";
 
       let filtered = timeline_Events;
@@ -1115,7 +1135,10 @@ function calculatePlanetLongitude(dateObj, planetKey) {
 
           return `
             <div class="bg-slate-900/60 p-3 rounded-xl border border-indigo-500/10 space-y-1">
-              <div class="flex items-center gap-2 text-xs font-bold text-indigo-200">
+              <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-indigo-200">
+                <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/30 text-[10px]">
+                  <i class="fa-regular fa-calendar text-amber-300 mr-1"></i>${e.month}月頃
+                </span>
                 <span class="${tMeta.color}"><i class="fa-solid ${tMeta.icon}"></i> 運行中${tMeta.name}</span>
                 <span class="text-slate-400">×</span>
                 <span class="text-purple-300">コンポジット${cMeta.name}</span>
