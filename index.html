@@ -136,8 +136,11 @@
       <button id="tab_btn_4" onclick="switchTab('tab_4')" class="tab-btn px-4 py-2.5 rounded-t-xl text-sm font-semibold transition-all flex items-center gap-2 bg-slate-800/50 text-slate-400 hover:text-slate-200 border-b-2 border-transparent whitespace-nowrap">
         <i class="fa-solid fa-timeline"></i> 50年先 未来予測カレンダー
       </button>
+   <!-- ★【ここを追加！】50年予測の次に来る「鑑定サマリー用」のタブボタン -->
+      <button id="tab_btn_5" onclick="switchTab('tab_5')" class="tab-btn px-4 py-2.5 rounded-t-xl text-sm font-semibold transition-all flex items-center gap-2 bg-slate-800/50 text-slate-400 hover:text-slate-200 border-b-2 border-transparent whitespace-nowrap">
+        <i class="fa-solid fa-clipboard-check"></i> 相性鑑定サマリー
+      </button>
     </div>
-
     <!-- TAB CONTENTS -->
 
     <!-- TAB 1: 基本天体 & サビアンシンボル -->
@@ -231,6 +234,8 @@
       </div>
     </div>
 
+
+
     <!-- TAB 3: コンポジットチャート -->
     <div id="tab_3" class="tab-content hidden space-y-6">
       <div class="glass-panel rounded-2xl p-6 space-y-4">
@@ -247,6 +252,9 @@
           <!-- JS populated -->
         </div>
       </div>
+
+
+
 
       <!-- Composite Summary Card -->
       <div class="glass-panel rounded-2xl p-6 space-y-3 bg-gradient-to-br from-indigo-950/40 via-purple-950/20 to-slate-900/40">
@@ -286,6 +294,28 @@
         <div id="timeline_container" class="relative pl-6 space-y-8 before:absolute before:inset-0 before:left-2.5 before:w-0.5 before:bg-gradient-to-b before:from-indigo-500 before:via-purple-500 before:to-slate-800">
           <!-- JS populated timeline items -->
         </div>
+      </div>
+    </div>
+
+<!-- TAB 5: 相性鑑定サマリー -->
+    <div id="tab_5" class="tab-content hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-indigo-500/20 pb-4">
+          <div>
+            <h3 class="text-xl font-bold font-serif-jp text-indigo-200 flex items-center gap-2">
+              <i class="fa-solid fa-clipboard-check text-amber-300"></i> 相性鑑定サマリー（コピー用）
+            </h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              二人のシナストリー・コンポジット解析、および未来予測のハイライトをまとめたコピー用テキストです。
+            </p>
+          </div>
+          <button onclick="copyCompatibilitySummary()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg flex items-center gap-1.5 whitespace-nowrap">
+            <i class="fa-regular fa-copy"></i> テキストをコピー
+          </button>
+        </div>
+
+        <!-- コピー対象のテキストエリア -->
+        <textarea id="compatibility_summary_text" rows="12" readonly class="w-full glass-input text-xs p-3 rounded-xl text-slate-300 font-serif-jp resize-none focus:outline-none"></textarea>
       </div>
     </div>
 
@@ -1036,7 +1066,7 @@ function calculatePlanetLongitude(dateObj, planetKey) {
       }
     }
 
-  // TAB 4 表示 (50年未来予測) - 月単位の精度にパワーアップ！
+// TAB 4 表示 (50年未来予測) - 月単位の精度＆期間表示にパワーアップ！
     function calculate50YearsTimeline() {
       const currentYear = new Date().getFullYear();
       timeline_Events = [];
@@ -1047,8 +1077,8 @@ function calculatePlanetLongitude(dateObj, planetKey) {
       for (let y = 0; y < 50; y++) {
         const scanYear = currentYear + y;
 
-        // 1年を2ヶ月おき（1月、3月、5月、7月、9月、11月）にスキャンして、何月頃に起こるかを調べる
-        for (let m = 0; m < 12; m += 2) {
+        // 1年を毎月（1〜12月）スキャンして、アスペクトが続く期間をキャッチする！
+        for (let m = 0; m < 12; m++) {
           const scanDate = new Date(Date.UTC(scanYear, m, 15, 12, 0, 0));
           const scanMonth = m + 1; // 1〜12月
 
@@ -1060,25 +1090,33 @@ function calculatePlanetLongitude(dateObj, planetKey) {
               const res = checkAspect(transDeg, compDeg);
 
               if (res && (res.aspect.name.includes("合") || res.aspect.name.includes("180") || res.aspect.name.includes("120") || res.aspect.name.includes("90"))) {
-                // すでに同じ年・同じ天体ペアのイベントが登録されていなければ追加（重複防止＆よりタイトなオーブを優先）
+                // 同じ年・同じ天体ペア・同じアスペクトがすでに登録されているかチェック
                 const existingIndex = timeline_Events.findIndex(e => 
                   e.year === scanYear && e.transPlanet === transPlanet && e.compPlanet === compPlanet && e.aspect.name === res.aspect.name
                 );
 
                 if (existingIndex === -1) {
+                  // 新規：開始月と終了月を同じ月として登録
                   timeline_Events.push({
                     year: scanYear,
-                    month: scanMonth,
+                    startMonth: scanMonth,
+                    endMonth: scanMonth,
                     transPlanet: transPlanet,
                     compPlanet: compPlanet,
                     aspect: res.aspect,
-                    orb: res.orbError
+                    minOrb: res.orbError
                   });
                 } else {
-                  // すでに有る場合は、よりオーブ（誤差）が小さいほうの月に更新
-                  if (res.orbError < timeline_Events[existingIndex].orb) {
-                    timeline_Events[existingIndex].month = scanMonth;
-                    timeline_Events[existingIndex].orb = res.orbError;
+                  // すでに有る場合は、期間（開始月〜終了月）を広げる！
+                  if (scanMonth < timeline_Events[existingIndex].startMonth) {
+                    timeline_Events[existingIndex].startMonth = scanMonth;
+                  }
+                  if (scanMonth > timeline_Events[existingIndex].endMonth) {
+                    timeline_Events[existingIndex].endMonth = scanMonth;
+                  }
+                  // よりオーブ（誤差）が小さいものがあれば最小オーブを更新
+                  if (res.orbError < timeline_Events[existingIndex].minOrb) {
+                    timeline_Events[existingIndex].minOrb = res.orbError;
                   }
                 }
               }
@@ -1089,6 +1127,12 @@ function calculatePlanetLongitude(dateObj, planetKey) {
 
       renderTimeline();
     }
+
+// ★【ここを追加！】未来予測の計算が完了した瞬間に、サマリー文を自動生成してテキストエリアに入れる！
+      if (typeof generateCompatibilitySummary === 'function') {
+        generateCompatibilitySummary();
+      }
+    
 
     function renderTimeline() {
       const container = document.getElementById("timeline_container");
@@ -1126,6 +1170,12 @@ function calculatePlanetLongitude(dateObj, planetKey) {
           const tMeta = PLANET_INFO[e.transPlanet];
           const cMeta = PLANET_INFO[e.compPlanet];
 
+          // ★ 開始月と終了月が同じなら「〇月頃」、違えば「〇月頃〜〇月頃」にする！
+          let monthDisplay = `${e.startMonth}月頃`;
+          if (e.startMonth !== e.endMonth) {
+            monthDisplay = `${e.startMonth}月頃〜${e.endMonth}月頃`;
+          }
+
           let themeText = "";
           if (e.transPlanet === 'jupiter') themeText = "拡大と飛躍の時期。発展のチャンスや新しい旅立ちの好機。";
           else if (e.transPlanet === 'saturn') themeText = "固める・定着の時期。二人の絆を現実的に構築する重要な節目。";
@@ -1137,7 +1187,7 @@ function calculatePlanetLongitude(dateObj, planetKey) {
             <div class="bg-slate-900/60 p-3 rounded-xl border border-indigo-500/10 space-y-1">
               <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-indigo-200">
                 <span class="px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-500/30 text-[10px]">
-                  <i class="fa-regular fa-calendar text-amber-300 mr-1"></i>${e.month}月頃
+                  <i class="fa-regular fa-calendar text-amber-300 mr-1"></i>${monthDisplay}
                 </span>
                 <span class="${tMeta.color}"><i class="fa-solid ${tMeta.icon}"></i> 運行中${tMeta.name}</span>
                 <span class="text-slate-400">×</span>
@@ -1171,24 +1221,32 @@ function calculatePlanetLongitude(dateObj, planetKey) {
     // タブ切り替え logic
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-      document.getElementById(tabId).classList.remove('hidden');
+      const targetTab = document.getElementById(tabId);
+      if (targetTab) targetTab.classList.remove('hidden');
 
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('bg-indigo-600/80', 'text-white', 'border-indigo-400');
         btn.classList.add('bg-slate-800/50', 'text-slate-400', 'border-transparent');
       });
 
+      // ★【ポイント1】タブ5（tab_5）のボタンIDもここにしっかり追加する！
       const activeBtnMap = {
         'tab_1': 'tab_btn_1',
         'tab_2': 'tab_btn_2',
         'tab_3': 'tab_btn_3',
-        'tab_4': 'tab_btn_4'
+        'tab_4': 'tab_btn_4',
+        'tab_5': 'tab_btn_5'
       };
 
       const activeBtn = document.getElementById(activeBtnMap[tabId]);
       if (activeBtn) {
         activeBtn.classList.remove('bg-slate-800/50', 'text-slate-400', 'border-transparent');
         activeBtn.classList.add('bg-indigo-600/80', 'text-white', 'border-indigo-400');
+      }
+
+      // ★【ポイント2】タブ5（相性鑑定サマリー）が開かれた瞬間に、中身を自動で生成して流し込む！
+      if (tabId === 'tab_5' && typeof generateCompatibilitySummary === 'function') {
+        generateCompatibilitySummary();
       }
     }
 
@@ -1200,6 +1258,190 @@ function calculatePlanetLongitude(dateObj, planetKey) {
       }
       calculateAll();
     };
+
+
+   // 安全にデータを拾ってテキストを生成する関数
+    function generateCompatibilitySummary() {
+      const textarea = document.getElementById('compatibility_summary_text');
+      if (!textarea) return;
+
+      try {
+        // 名前の取得
+        const p1Raw = typeof state !== 'undefined' && state.name ? state.name : 'お相手A';
+        const p2Raw = typeof partnerState !== 'undefined' && partnerState.name ? partnerState.name : 'お相手B';
+        const p1Name = p1Raw.replace(/様$/, '');
+        const p2Name = p2Raw.replace(/様$/, '');
+
+        let text = `【 ${p1Name}様 ＆ ${p2Name}様 総合ホロスコープ＆未来鑑定書 】\n`;
+        text += `═══════════════════════════════\n\n`;
+
+        const planetKeys = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn'];
+
+        // 1. パーソナルデータ＆サビアンシンボル概要
+        text += `■ 1. パーソナルデータ＆サビアンシンボル概要\n`;
+        text += `お互いが持つ主要7天体の配置とサビアンシンボルは、魂の本質や今世でのテーマ、惹かれ合う才能を鮮やかに映し出しています。\n\n`;
+
+        // A様の全天体
+        if (typeof personA_Data !== 'undefined' && personA_Data && personA_Data.planets) {
+          text += `【 ${p1Name}様の天体配置 】\n`;
+          planetKeys.forEach(pKey => {
+            const pObj = personA_Data.planets[pKey];
+            if (pObj && pObj.info) {
+              const info = pObj.info;
+              const metaName = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[pKey]) ? PLANET_INFO[pKey].name : pKey;
+              const signName = info.sign ? info.sign.name : '';
+              text += `・${metaName}: ${signName} (${info.sabianDeg || ''}度: 「${info.sabianTitle || ''}」)\n`;
+            }
+          });
+          text += `\n`;
+        }
+
+        // B様の全天体
+        if (typeof personB_Data !== 'undefined' && personB_Data && personB_Data.planets) {
+          text += `【 ${p2Name}様の天体配置 】\n`;
+          planetKeys.forEach(pKey => {
+            const pObj = personB_Data.planets[pKey];
+            if (pObj && pObj.info) {
+              const info = pObj.info;
+              const metaName = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[pKey]) ? PLANET_INFO[pKey].name : pKey;
+              const signName = info.sign ? info.sign.name : '';
+              text += `・${metaName}: ${signName} (${info.sabianDeg || ''}度: 「${info.sabianTitle || ''}」)\n`;
+            }
+          });
+          text += `\n`;
+        }
+
+        // 2. シナストリー解析（二人の引き合い・アスペクト自動検出）
+        text += `■ 2. シナストリー解析（二人の引き合い）\n`;
+        text += `お互いの惑星が織りなすアスペクトは、惹かれ合う強力な引力や、一緒にいるときに自然と引き出される才能・心地よさを物語っています。\n`;
+
+        if (typeof personA_Data !== 'undefined' && typeof personB_Data !== 'undefined' && typeof checkAspect === 'function' && personA_Data.planets && personB_Data.planets) {
+          let detectedAspects = [];
+          planetKeys.forEach(pkA => {
+            planetKeys.forEach(pkB => {
+              if (personA_Data.planets[pkA] && personB_Data.planets[pkB]) {
+                const res = checkAspect(personA_Data.planets[pkA].deg, personB_Data.planets[pkB].deg);
+                if (res) {
+                  detectedAspects.push({
+                    pAKey: pkA,
+                    pBKey: pkB,
+                    aspect: res.aspect,
+                    orbError: res.orbError
+                  });
+                }
+              }
+            });
+          });
+
+          if (detectedAspects.length > 0) {
+            text += `【 主な検出アスペクト（相性ポイント） 】\n`;
+            const maxAsp = Math.min(detectedAspects.length, 8);
+            for (let i = 0; i < maxAsp; i++) {
+              const item = detectedAspects[i];
+              const nameA = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[item.pAKey]) ? PLANET_INFO[item.pAKey].name : item.pAKey;
+              const nameB = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[item.pBKey]) ? PLANET_INFO[item.pBKey].name : item.pBKey;
+              text += `・${p1Name}様の${nameA} × ${p2Name}様の${nameB} : ${item.aspect.symbol} ${item.aspect.name} (誤差 ${item.orbError.toFixed(1)}°)\n`;
+            }
+          } else {
+            text += `  目立った主要アスペクト（オーブ内）は検出されませんでした。\n`;
+          }
+        }
+        text += `\n`;
+
+        // 3. コンポジットチャート（第3の関係性）
+        text += `■ 3. コンポジットチャート（二人の「第3の生命体」）\n`;
+        text += `二人の天体の中間点から導き出されるコンポジットチャートは、二人が合わさることで生まれる共通の目的や、一つの「ユニット・生命体」としての歩みを象徴しています。\n`;
+        
+        if (typeof composite_Data !== 'undefined' && composite_Data && composite_Data.planets) {
+          planetKeys.forEach(pKey => {
+            const pObj = composite_Data.planets[pKey];
+            if (pObj && pObj.info) {
+              const info = pObj.info;
+              const metaName = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[pKey]) ? PLANET_INFO[pKey].name : pKey;
+              const signName = info.sign ? info.sign.name : '';
+              text += `・コンポジット${metaName}: ${signName} (${info.sabianDeg || ''}度: 「${info.sabianTitle || ''}」)\n`;
+            }
+          });
+        }
+        text += `\n`;
+
+        // 4. 50年未来予測（直近ハイライト）
+        if (typeof timeline_Events !== 'undefined' && timeline_Events && timeline_Events.length > 0) {
+          text += `■ 4. これから訪れる未来の節目・転換期（直近ハイライト）\n`;
+          
+          let currentDisplayedYears = new Set();
+          let count = 0;
+
+          for (let i = 0; i < timeline_Events.length; i++) {
+            const e = timeline_Events[i];
+            
+            currentDisplayedYears.add(e.year);
+            if (currentDisplayedYears.size > 3 && count >= 5) break;
+
+            const tName = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[e.transPlanet]) ? PLANET_INFO[e.transPlanet].name : '天体';
+            const cName = (typeof PLANET_INFO !== 'undefined' && PLANET_INFO[e.compPlanet]) ? PLANET_INFO[e.compPlanet].name : '天体';
+            
+            let monthStr = `${e.startMonth}月頃`;
+            if (e.startMonth !== e.endMonth) {
+              monthStr = `${e.startMonth}月頃〜${e.endMonth}月頃`;
+            }
+
+            text += `・${e.year}年 ${monthStr}：運行${tName} × コンポジット${cName} (${e.aspect.name})\n`;
+            
+            if (e.transPlanet === 'jupiter') text += `  【拡大・発展】新しいチャンスや飛躍のタイミング。\n`;
+            else if (e.transPlanet === 'saturn') text += `  【構築・試練】絆を固め、現実的な基盤をしっかりと築く時期。\n`;
+            else if (e.transPlanet === 'uranus') text += `  【変革・独立】関係性に新鮮な風やイノベーションが起きる時。\n`;
+            else if (e.transPlanet === 'neptune') text += `  【理想・融和】ロマンが広がり、深い共感と癒やしがもたらされる時期。\n`;
+            else if (e.transPlanet === 'pluto') text += `  【宿命的変容】人生のステージや関係性が根本から生まれ変わる節目。\n`;
+            text += `\n`;
+            count++;
+          }
+        }
+
+        text += `═══════════════════════════════\n`;
+        text += `✨ 二人が歩む未来が、温かな光と愛に包まれた素晴らしいものでありますように。\n`;
+        text += `（ネロリの小部屋 相性鑑定アプリより生成）`;
+
+        textarea.value = text;
+
+      } catch (err) {
+        console.error("相性サマリー生成エラー:", err);
+        textarea.value = "鑑定データの生成中にエラーが発生しました。一度お互いのデータを計算し直してみてください。";
+      }
+    }
+
+    // ワンクリックでクリップボードにコピーする関数
+    function copyCompatibilitySummary() {
+      const textarea = document.getElementById('compatibility_summary_text');
+      if (!textarea) return;
+      
+      textarea.select();
+      textarea.setSelectionRange(0, 99999); // スマホ対応
+      
+      navigator.clipboard.writeText(textarea.value).then(() => {
+        alert('鑑定サマリーをコピーしました！✨ LINEやメモに貼り付けてね💕');
+      }).catch(err => {
+        console.error('コピーに失敗しました', err);
+      });
+    }
+
+    // ★【ここに追加！ピタッと連携させるコード】
+    // 二人の相性やコンポジットを計算しているメイン関数の最後に、この1行を必ず入れてね！
+    // 例： calculateComposite() や calculateCompatibility() などの最後：
+    /*
+    function calculateComposite() {
+       // 今までの計算処理...
+       generateCompatibilitySummary(); // ← ここで文章を自動生成！
+    }
+    */
+
+// ページが読み込まれたら自動で一度サマリーを作っておく
+    window.addEventListener('DOMContentLoaded', () => {
+      if (typeof generateCompatibilitySummary === 'function') {
+        generateCompatibilitySummary();
+      }
+    });
+
   </script>
 </body>
 </html>
